@@ -13,7 +13,7 @@ void swap(int* a, int* b)
     *b = t; 
 } 
    
-// partition the array using first element as pivot
+// partition the array using last element as pivot
 int partition (int arr[], int low, int high)
 {
     int pivot = arr[high]; // pivot
