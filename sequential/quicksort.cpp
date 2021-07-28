@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <time.h>
 
 using namespace std;
 
@@ -90,7 +91,7 @@ int main(int argc, char *argv[])
 { 
     string file = argv[1];
 
-    cout << file << endl;
+    cout << "Input path:" << file << endl;
 
     const int size = atoi(argv[2]);
 
@@ -98,7 +99,11 @@ int main(int argc, char *argv[])
 
     readArray(file, size, arr);
 
+    clock_t tStart = clock();
+
     quickSort(arr, 0, size-1); 
+
+    printf("Time for quicksort execution: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
     
     printArray(arr,size);
     
