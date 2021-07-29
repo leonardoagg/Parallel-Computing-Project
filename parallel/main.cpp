@@ -117,6 +117,41 @@ int main(int argc, char** argv) {
     // sort each local array
     quickSort(&local_arr,0,local_array_size);
 
+    /* Create pairs of communicator in order to follow the algorithm
+     * if P = 4 :
+     * First iteration P0 P1 P2 P3
+     *
+     * Second iteration P0 - P2  / P1 - P3
+     *
+     */
+    for(int iter = 0; iter < logp; iter++){
+        // Processors with the same color work together
+        int color = pow(2,iter)*rank/size;
+
+        MPI_Comm new_comm;
+        MPI_Comm_split(MPI_COMM_WORLD, color, size, &new_comm);
+        int split_rank,sz;
+        MPI_Comm_rank(new_comm,&split_rank);
+        MPI_Comm_size(new_comm,&sz);
+
+        // Process 0 broadcast its median
+        median = local_arr[local_array_size/2];
+        MPI_Bcast(&median, 1, MPI_INT, 0, new_comm);
+
+        // Each process in upper half will swap its low list with high list of corresponding lower half
+        // Search the pivot into the sub-sequence
+        pivot = 0;
+        while(pivot < local_array_size && local_arr[pivot] < median)
+        {
+            pivot++;
+        }
+
+        int pair_process = (split_rank+(sz>>1))%sz;
+        printf("process %d color %d\n", rank, pair_process);
+
+    }
+
+
     /*
     if(rank == 3)
     {
