@@ -126,13 +126,15 @@ int main(int argc, char** argv) {
      */
     for(int iter = 0; iter < logp; iter++){
         // Processors with the same color work together
+        // Selection of the broadcast receivers
         int color = pow(2,iter)*rank/size;
+       // printf("process %d color %d\n", rank, color);
 
         MPI_Comm new_comm;
         MPI_Comm_split(MPI_COMM_WORLD, color, size, &new_comm);
-        int split_rank,sz;
+        int split_rank,split_size;
         MPI_Comm_rank(new_comm,&split_rank);
-        MPI_Comm_size(new_comm,&sz);
+        MPI_Comm_size(new_comm,&split_size);
 
         // Process 0 broadcast its median
         median = local_arr[local_array_size/2];
@@ -146,20 +148,88 @@ int main(int argc, char** argv) {
             pivot++;
         }
 
-        int pair_process = (split_rank+(sz>>1))%sz;
-        printf("process %d color %d\n", rank, pair_process);
+        //int pair_process = (split_rank+(sz>>1))%sz;
+        int pair_process = (split_rank+(split_size/2))%split_size;
 
+        //printf("pair_process %d --> %d\n", split_rank, pair_process);
+
+        if(split_rank > pair_process) //uppur half
+        {
+            MPI_Send(local_arr.data(),pivot,MPI_INT,pair_process,1,new_comm);
+            MPI_Recv(recv_buf.data(),array_size,MPI_INT,pair_process,1,new_comm,&status);
+        } else  // lower half
+        {
+            MPI_Recv(recv_buf.data(),array_size,MPI_INT,pair_process,1,new_comm,&status);
+            MPI_Send(&local_arr[0]+pivot,local_array_size - pivot, MPI_INT, pair_process,1, new_comm);
+        }
+
+        // MERGING THE TWO SORTED LIST
+
+        // counting # of elements received
+        int recv_count;
+        MPI_Get_count(&status,MPI_INT,&recv_count);
+
+        // initialize elements for merging
+        int i, i_end;
+        if(split_rank > pair_process){
+            i = pivot;
+            i_end = local_array_size;
+            local_array_size = local_array_size - pivot + recv_count;
+        }else{
+            i = 0;
+            i_end = pivot;
+            local_array_size = pivot + recv_count;
+        }
+
+        // creation of a merging buffer with the total ordered sequences
+        int k = 0 , j = 0;
+        while(i < i_end && j < recv_count){
+            if(local_arr[i] < recv_buf[j])
+                merge_buf[k++] = local_arr[i++];
+            else
+                merge_buf[k++] = recv_buf[j++];
+        }
+
+        // finishing last elements
+        while(i < i_end)
+            merge_buf[k++] = local_arr[i++];
+        while(j < recv_count)
+            merge_buf[k++] = recv_buf[j++];
+
+        // copy merge buffer into local_array
+        for(int i = 0; i < local_array_size; i++)
+        {
+            local_arr[i] = merge_buf[i];
+        }
+
+        MPI_Comm_free(&new_comm);
     }
 
+    // waiting for the execution
+    MPI_Barrier(MPI_COMM_WORLD);
+    //end time
+    end = MPI_Wtime();
 
-    /*
-    if(rank == 3)
+    // collect all the local_array in order to reconstruct the ordered sequence
+    if(rank != 0)
     {
-        for(int i = 0 ; i< local_array_size;i++)
-              std::cout << local_arr[i] << std::endl;
+        MPI_Send(local_arr.data(),local_array_size,MPI_INT,0,1,MPI_COMM_WORLD);
     }
-*/
 
+    if(rank == 0){
+        int recv_count = local_array_size;
+        for(int i = 1; i < size; i++){
+            MPI_Recv(&local_arr[0] + recv_count,array_size,MPI_INT,i,1,MPI_COMM_WORLD,&status);
+            int temp_count;
+            MPI_Get_count(&status,MPI_INT,&temp_count);
+            recv_count += temp_count;
+        }
+        for(int i = 0 ; i < array_size; i++)
+            printf(" %d\n", local_arr[i]);
+
+
+        printf("time taken: %lf\n",end-start);
+    }
 
 
     MPI_Finalize();
