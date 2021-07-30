@@ -5,6 +5,23 @@
 #include <vector>
 
 /*
+ * Method used to print the output data into a file
+ */
+void printArray(std::vector<int>* arr, int size)
+{
+    // output file creation
+    std::ofstream outfile("orderedOutput.txt");
+
+    // generation of txt with 1 number for each row
+    for(int i = 0 ; i < size ; i++)
+    {
+        outfile << arr->at(i) << std::endl;
+    }
+    //close file
+    outfile.close();
+}
+
+/*
  * Method used to read the input data
  */
 void readArray(std::string file, int size, std::vector<int>* arr)
@@ -111,11 +128,12 @@ int main(int argc, char** argv) {
     local_array_size = array_size/size;
     MPI_Scatter(arr.data(),local_array_size,MPI_INT,local_arr.data(),local_array_size,MPI_INT,0,MPI_COMM_WORLD);
 
+
     //Start time counting
     start= MPI_Wtime();
 
     // sort each local array
-    quickSort(&local_arr,0,local_array_size);
+    quickSort(&local_arr,0,local_array_size-1);
 
     /* Create pairs of communicator in order to follow the algorithm
      * if P = 4 :
@@ -152,16 +170,33 @@ int main(int argc, char** argv) {
         int pair_process = (split_rank+(split_size/2))%split_size;
 
         //printf("pair_process %d --> %d\n", split_rank, pair_process);
-
+        /*
+        for(int i = 0 ; i < local_array_size - pivot; i++)
+        {
+            printf("rank: %d iteration %d--- %d\n",rank,iter,local_arr[i]);
+            // printf("renge arr: %d --- %d\n",rank,merge_buf[i]);
+        }
+         */
         if(split_rank > pair_process) //uppur half
         {
-            MPI_Send(local_arr.data(),pivot,MPI_INT,pair_process,1,new_comm);
-            MPI_Recv(recv_buf.data(),array_size,MPI_INT,pair_process,1,new_comm,&status);
+            MPI_Send(&local_arr[0],pivot,MPI_INT,pair_process,1,new_comm);
+            MPI_Recv(&recv_buf[0],array_size,MPI_INT,pair_process,1,new_comm,&status);
         } else  // lower half
         {
-            MPI_Recv(recv_buf.data(),array_size,MPI_INT,pair_process,1,new_comm,&status);
-            MPI_Send(&local_arr[0]+pivot,local_array_size - pivot, MPI_INT, pair_process,1, new_comm);
+
+            MPI_Send(&local_arr[0]+pivot,local_array_size - pivot , MPI_INT, pair_process,1, new_comm);
+            MPI_Recv(&recv_buf[0],array_size,MPI_INT,pair_process,1,new_comm,&status);
+
         }
+
+        /*
+        if(rank == 0)
+            for(int i = 0 ; i < local_array_size; i++)
+            {
+                printf("rank: %d iteration %d--- %d\n",rank,iter,local_arr[i]);
+                // printf("renge arr: %d --- %d\n",rank,merge_buf[i]);
+            }
+*/
 
         // MERGING THE TWO SORTED LIST
 
@@ -202,34 +237,44 @@ int main(int argc, char** argv) {
             local_arr[i] = merge_buf[i];
         }
 
+
+
+
         MPI_Comm_free(&new_comm);
     }
 
     // waiting for the execution
     MPI_Barrier(MPI_COMM_WORLD);
-    //end time
-    end = MPI_Wtime();
 
     // collect all the local_array in order to reconstruct the ordered sequence
+    // Send all the ordered content to Master process (P0)
     if(rank != 0)
     {
         MPI_Send(local_arr.data(),local_array_size,MPI_INT,0,1,MPI_COMM_WORLD);
     }
 
+
+    // waiting for the execution
+ //   MPI_Barrier(MPI_COMM_WORLD);
+
+    // P0 has to collect and add to own array the ordered sub-arrays
     if(rank == 0){
         int recv_count = local_array_size;
         for(int i = 1; i < size; i++){
-            MPI_Recv(&local_arr[0] + recv_count,array_size,MPI_INT,i,1,MPI_COMM_WORLD,&status);
+            MPI_Recv(&local_arr[recv_count],array_size,MPI_INT,i,1,MPI_COMM_WORLD,&status);
             int temp_count;
             MPI_Get_count(&status,MPI_INT,&temp_count);
             recv_count += temp_count;
         }
-        for(int i = 0 ; i < array_size; i++)
-            printf(" %d\n", local_arr[i]);
+        //end time
+        end = MPI_Wtime();
 
-
-        printf("time taken: %lf\n",end-start);
+        std::cout << "Time taken:" << end-start << "s" << std::endl;
+        printArray(&local_arr,array_size);
+       // for(int i = 0 ; i < array_size; i++)
+         //   printf("Rank: %d --- %d\n",rank,local_arr[i]);
     }
+
 
 
     MPI_Finalize();
