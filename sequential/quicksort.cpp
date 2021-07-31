@@ -1,9 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <time.h>
+#include <vector>
+#include <chrono>
 
 using namespace std;
-
 
 // Swap two elements
 void swap(int* a, int* b) 
@@ -14,78 +15,73 @@ void swap(int* a, int* b)
 } 
    
 // partition the array using last element as pivot
-int partition (int arr[], int low, int high)
+int partition (vector<int>* arr, int low, int high)
 {
-    int pivot = arr[high]; // pivot
+    int pivot = arr->at(high); // pivot
     int i = (low - 1); // Index of smaller element and indicates the right position of pivot found so far
- 
+
     for (int j = low; j <= high - 1; j++)
     {
         // If current element is smaller than the pivot
-        if (arr[j] < pivot)
+        if (arr->at(j) < pivot)
         {
             i++; // increment index of smaller element
-            swap(&arr[i], &arr[j]);
+            swap(&arr->at(i), &arr->at(j));
         }
     }
-    swap(&arr[i + 1], &arr[high]);
+    swap(&arr->at(i + 1), &arr->at(high));
     return (i + 1);
 }
 
-   
+
 //quicksort algorithm
-void quickSort(int arr[], int low, int high) 
-{ 
-    if (low < high) 
-    { 
-        //partition the array 
-        int pivot = partition(arr, low, high); 
-   
-        //sort the sub arrays independently 
-        quickSort(arr, low, pivot - 1); 
-        quickSort(arr, pivot + 1, high); 
-    } 
-} 
-   
-void printArray(int arr[], int size) 
-{ 
+void quickSort(vector<int>* arr, int low, int high)
+{
+    if (low < high)
+    {
+        //partition the array
+        int pivot = partition(arr, low, high);
 
-  // output file creation
-  ofstream outfile("orderedOutput.txt");
+        //sort the sub arrays independently
+        quickSort(arr, low, pivot - 1);
+        quickSort(arr, pivot + 1, high);
+    }
+}
 
-  // generation of txt with 1 number for each row
-  for(int i = 0 ; i < size ; i++)
-  {
-    outfile << arr[i] << endl;
-  }
 
-  //close file
-  outfile.close();
-      
-} 
+void printArray(vector<int>* arr, int size)
+{
+    // output file creation
+    ofstream outfile("orderedOutput.txt");
 
-void readArray(string file, int size, int *arr) 
-{ 
+    // generation of txt with 1 number for each row
+    for(int i = 0 ; i < size ; i++)
+    {
+        outfile << arr->at(i) << endl;
+    }
+    //close file
+    outfile.close();
+}
 
+void readArray(string file, int size, vector<int>* arr)
+{
     ifstream inFile;
     inFile.open(file);
 
     if (!inFile) {
-            cout << "Unable to open file";
-            exit(1); // terminate with error
-        }
-
+        cout << "Unable to open file" << endl;
+        exit(1); // terminate with error
+    }
     int i = 0;
-
     int x;
-
+    // Fill the array with data
     while (inFile >> x) {
-        arr[i] = x;
+        arr->push_back(x);
         i++;
     }
-    
     inFile.close();
-} 
+}
+
    
 int main(int argc, char *argv[]) 
 { 
@@ -95,17 +91,22 @@ int main(int argc, char *argv[])
 
     const int size = atoi(argv[2]);
 
-    int arr[size];
+    vector<int> arr;
 
-    readArray(file, size, arr);
+    readArray(file, size, &arr);
 
-    clock_t tStart = clock();
+    //clock_t tStart = clock();
+    auto start = chrono::high_resolution_clock::now();
 
-    quickSort(arr, 0, size-1); 
+    quickSort(&arr, 0, size-1);
 
-    printf("Time for quicksort execution: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
-    
-    printArray(arr,size);
+    auto stop = chrono::high_resolution_clock::now();
+
+    auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
+
+    cout << "Time for quicksort execution: " << duration.count() / 1000000.0 << "s" << endl;
+
+    printArray(&arr,size);
     
     return 0; 
 }
