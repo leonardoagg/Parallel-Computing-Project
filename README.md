@@ -40,7 +40,7 @@ This command will create 4 executables:
 
 the number "4" indicates the number of parallel processes.
 
-*Note*
+**Note**
 
 Running quicksort.o with 1 process is the same of running the sequential version. 
 
