@@ -1,22 +1,39 @@
 # Parallel-Computing-Project
-Progetto di calcolo parallelo Aggio Leonardo / Sarti Gioia
+Authors: 
+- Aggio Leonardo
+- Sarti Gioia 
 
-# Istruzioni
+## Instructions
 
-1) Creare una sequenza casuale di n cifre con il comando: 	./generator n
+### 1) Create a file which contains a sequence of n elements
 
-2) Eseguire il quicksort sequenziale usando il comando ./quicksort_seq ../input_generator/inputSequence.txt n
+`$ cd input_generator`
+`$ make`
+`$ ./input_generator.o 10000000`
+change 1'000'000 with the number of elements you want.
 
-La sequenza messa a disposizione ha n = 10000 elementi.
+### 2) Execute the sequential quicksort to order the sequence
 
-- Compilare ed eseguire sequential su Linux:
+`$ cd sequential`
+`$ make`
+`$ ./quicksort.o ../input_generator/inputSequence.txt`
 
-  g++ quicksort.cpp -o sequential_quicksort
-  ./sequential_quicksort ../input_generator/inputSequence.txt n
-  
-- Compilare ed eseguire parallel version su Linux:
-  
-  mpicxx -o parallel_quicksort main.cpp
-  mpirun -np P ./parallel_quicksort ../input_generator/inputSequence.txt n
-  
-  (n = grandezza sequenza - P = Numero processori)
+### 3) Execute parallel versions of the quicksort
+
+`$ cd parallel`
+`$ make`
+This command will create 4 executables:
+
+- quicksort.o 
+- quicksort_O1.o 
+- quicksort_O2.o 
+- quicksort_O3.o
+
+`$mpirun -np 4 ./quicksort.o ../input_generator/inputSequence.txt`
+4 indicates the number of parallel processes.
+
+*Note*
+Running quicksort.o with 1 process is the same of running the sequential version. 
+
+"../input_generator/inputSequence.txt" can be replaced with another file with the same formatting.
+
