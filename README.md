@@ -41,6 +41,7 @@ This command will create 4 executables:
 the number "4" indicates the number of parallel processes.
 
 *Note*
+
 Running quicksort.o with 1 process is the same of running the sequential version. 
 
 "../input_generator/inputSequence.txt" can be replaced with another file with the same formatting.
