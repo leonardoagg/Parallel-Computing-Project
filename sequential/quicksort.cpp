@@ -63,7 +63,7 @@ void printArray(vector<int>* arr, int size)
     outfile.close();
 }
 
-void readArray(string file, int size, vector<int>* arr)
+int readArray(string file, vector<int>* arr)
 {
     ifstream inFile;
     inFile.open(file);
@@ -80,6 +80,7 @@ void readArray(string file, int size, vector<int>* arr)
         i++;
     }
     inFile.close();
+    return i;
 }
 
    
@@ -89,11 +90,9 @@ int main(int argc, char *argv[])
 
     cout << "Input path:" << file << endl;
 
-    const int size = atoi(argv[2]);
-
     vector<int> arr;
 
-    readArray(file, size, &arr);
+    int size = readArray(file, &arr);
 
     //clock_t tStart = clock();
     auto start = chrono::high_resolution_clock::now();

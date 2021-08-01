@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <fstream>
-#include <iostream>
 
 using namespace std;
 
@@ -16,7 +15,6 @@ int main(int argc, char *argv[])
 {
 
   int len = atoi(argv[1]);
-  int sequence[len];
 
   /* initialize random seed: */
   srand (time(NULL));

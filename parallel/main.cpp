@@ -22,9 +22,9 @@ void printArray(std::vector<int>* arr, int size)
 }
 
 /*
- * Method used to read the input data
+ * Method used to read the input data and return size
  */
-void readArray(std::string file, int size, std::vector<int>* arr)
+int readArray(std::string file, std::vector<int>* arr)
 {
     std::ifstream inFile;
     inFile.open(file);
@@ -42,6 +42,7 @@ void readArray(std::string file, int size, std::vector<int>* arr)
         i++;
     }
     inFile.close();
+    return i;
 }
 
 // Swap two elements
@@ -91,8 +92,9 @@ int main(int argc, char** argv) {
     int array_size, local_array_size, logp, median, pivot;
     std::vector<int> arr;
 
-    double start,end;
+    double start,end, start_comm, end_comm, communication_time = 0;
     MPI_Status status;
+    MPI_Request request;
 
  //   int taskId = 0;
     int rank, size; //rank = world_rank     size =  comm_sz
@@ -101,21 +103,15 @@ int main(int argc, char** argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-//    printf("Hello world from process %d of %d\n", rank, size);
-
     // Computing the log(P) for the  tasks' partition
     // Use round function in order to consider power of 2 processors
     logp = round(log(size)/ log(2));
-
-   // printf("Number of steps of %d in process %d\n", logp,rank);
 
    // Master reads the file and saves the sequence
     if(rank == 0)
     {
          std::string file = argv[1];
-         array_size = atoi(argv[2]);
-         readArray(file, array_size, &arr);
-
+         array_size = readArray(file, &arr);
          //std::cout << arr[10] << std::endl;
     }
 
@@ -128,25 +124,25 @@ int main(int argc, char** argv) {
     local_array_size = array_size/size;
     MPI_Scatter(arr.data(),local_array_size,MPI_INT,local_arr.data(),local_array_size,MPI_INT,0,MPI_COMM_WORLD);
 
-
     //Start time counting
     start= MPI_Wtime();
 
     // sort each local array
     quickSort(&local_arr,0,local_array_size-1);
 
+
+
     /* Create pairs of communicator in order to follow the algorithm
      * if P = 4 :
-     * First iteration P0 P1 P2 P3
+     * First iteration P0 - P2  / P1 - P3
      *
-     * Second iteration P0 - P2  / P1 - P3
+     * Second iteration P0 - P1  / P2 - P3
      *
      */
     for(int iter = 0; iter < logp; iter++){
         // Processors with the same color work together
         // Selection of the broadcast receivers
         int color = pow(2,iter)*rank/size;
-       // printf("process %d color %d\n", rank, color);
 
         MPI_Comm new_comm;
         MPI_Comm_split(MPI_COMM_WORLD, color, size, &new_comm);
@@ -169,34 +165,24 @@ int main(int argc, char** argv) {
         //int pair_process = (split_rank+(sz>>1))%sz;
         int pair_process = (split_rank+(split_size/2))%split_size;
 
-        //printf("pair_process %d --> %d\n", split_rank, pair_process);
-        /*
-        for(int i = 0 ; i < local_array_size - pivot; i++)
-        {
-            printf("rank: %d iteration %d--- %d\n",rank,iter,local_arr[i]);
-            // printf("renge arr: %d --- %d\n",rank,merge_buf[i]);
-        }
-         */
+        //Start time communication
+        start_comm = MPI_Wtime();
+
+        // Using Isend to prevent deadlock
         if(split_rank > pair_process) //uppur half
         {
-            MPI_Send(&local_arr[0],pivot,MPI_INT,pair_process,1,new_comm);
+            MPI_Isend(&local_arr[0],pivot,MPI_INT,pair_process,1,new_comm,&request);
             MPI_Recv(&recv_buf[0],array_size,MPI_INT,pair_process,1,new_comm,&status);
+
         } else  // lower half
         {
-
-            MPI_Send(&local_arr[0]+pivot,local_array_size - pivot , MPI_INT, pair_process,1, new_comm);
+            MPI_Isend(&local_arr[0]+pivot,local_array_size - pivot , MPI_INT, pair_process,1, new_comm,&request);
             MPI_Recv(&recv_buf[0],array_size,MPI_INT,pair_process,1,new_comm,&status);
-
         }
 
-        /*
-        if(rank == 0)
-            for(int i = 0 ; i < local_array_size; i++)
-            {
-                printf("rank: %d iteration %d--- %d\n",rank,iter,local_arr[i]);
-                // printf("renge arr: %d --- %d\n",rank,merge_buf[i]);
-            }
-*/
+        end_comm = MPI_Wtime();
+        communication_time = communication_time + (end_comm - start_comm);
+
 
         // MERGING THE TWO SORTED LIST
 
@@ -216,6 +202,7 @@ int main(int argc, char** argv) {
             local_array_size = pivot + recv_count;
         }
 
+        // (normal merging procedure)
         // creation of a merging buffer with the total ordered sequences
         int k = 0 , j = 0;
         while(i < i_end && j < recv_count){
@@ -237,14 +224,15 @@ int main(int argc, char** argv) {
             local_arr[i] = merge_buf[i];
         }
 
-
-
-
         MPI_Comm_free(&new_comm);
     }
 
     // waiting for the execution
     MPI_Barrier(MPI_COMM_WORLD);
+
+    double total_communication_time;
+
+    MPI_Reduce(&communication_time, &total_communication_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     // collect all the local_array in order to reconstruct the ordered sequence
     // Send all the ordered content to Master process (P0)
@@ -252,10 +240,6 @@ int main(int argc, char** argv) {
     {
         MPI_Send(local_arr.data(),local_array_size,MPI_INT,0,1,MPI_COMM_WORLD);
     }
-
-
-    // waiting for the execution
- //   MPI_Barrier(MPI_COMM_WORLD);
 
     // P0 has to collect and add to own array the ordered sub-arrays
     if(rank == 0){
@@ -270,13 +254,12 @@ int main(int argc, char** argv) {
         end = MPI_Wtime();
 
         std::cout << "Time taken:" << end-start << "s" << std::endl;
+        std::cout << "Communication time:" << total_communication_time << "s" << std::endl;
+
+        //Save the result in an output file
         printArray(&local_arr,array_size);
-       // for(int i = 0 ; i < array_size; i++)
-         //   printf("Rank: %d --- %d\n",rank,local_arr[i]);
+
     }
-
-
-
     MPI_Finalize();
     return 0;
 }
