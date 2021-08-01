@@ -38,7 +38,7 @@ This command will create 4 executables:
 
 `$ mpirun -np 4 ./quicksort.o ../input_generator/inputSequence.txt`
 
-4 indicates the number of parallel processes.
+the number "4" indicates the number of parallel processes.
 
 *Note*
 Running quicksort.o with 1 process is the same of running the sequential version. 
