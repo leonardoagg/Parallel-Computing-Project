@@ -122,8 +122,16 @@ int main(int argc, char** argv) {
 
     //Divide the sequence
     local_array_size = array_size/size;
+    if(rank == 0)
+    {
+        start_comm = MPI_Wtime();
+    }
     MPI_Scatter(arr.data(),local_array_size,MPI_INT,local_arr.data(),local_array_size,MPI_INT,0,MPI_COMM_WORLD);
-
+    if(rank == 0)
+    {
+        end_comm = MPI_Wtime();
+        communication_time = communication_time + (end_comm - start_comm);
+    }
     //Start time counting
     start= MPI_Wtime();
 
@@ -244,12 +252,17 @@ int main(int argc, char** argv) {
     // P0 has to collect and add to own array the ordered sub-arrays
     if(rank == 0){
         int recv_count = local_array_size;
+
+        start_comm = MPI_Wtime();
+
         for(int i = 1; i < size; i++){
             MPI_Recv(&local_arr[recv_count],array_size,MPI_INT,i,1,MPI_COMM_WORLD,&status);
             int temp_count;
             MPI_Get_count(&status,MPI_INT,&temp_count);
             recv_count += temp_count;
         }
+        end_comm = MPI_Wtime();
+        communication_time = communication_time + (end_comm - start_comm);
         //end time
         end = MPI_Wtime();
 
