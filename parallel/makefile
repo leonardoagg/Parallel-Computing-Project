@@ -1,4 +1,4 @@
-CXX = mpicc
+CXX = mpicxx
 SRC = main.cpp
 
 all : quicksort_O1 quicksort_O2 quicksort_O3 quicksort
