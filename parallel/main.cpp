@@ -94,7 +94,6 @@ int main(int argc, char** argv) {
 
     double start,end, start_comm, end_comm, communication_time = 0;
     MPI_Status status;
-    MPI_Request request;
 
  //   int taskId = 0;
     int rank, size; //rank = world_rank     size =  comm_sz
@@ -115,8 +114,23 @@ int main(int argc, char** argv) {
          //std::cout << arr[10] << std::endl;
     }
 
+
+    if(rank == 0)
+    {
+        //Start time counting
+        start= MPI_Wtime();
+        start_comm = MPI_Wtime();
+    }
+
     // Broadcast with the size of the array
     MPI_Bcast(&array_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if(rank == 0)
+    {
+        end_comm = MPI_Wtime();
+        communication_time = communication_time + (end_comm - start_comm);
+    }
+
     // Size of the single process elements
     std::vector<int> local_arr(array_size), recv_buf(array_size), merge_buf(array_size);
 
@@ -132,8 +146,7 @@ int main(int argc, char** argv) {
         end_comm = MPI_Wtime();
         communication_time = communication_time + (end_comm - start_comm);
     }
-    //Start time counting
-    start= MPI_Wtime();
+
 
     // sort each local array
     quickSort(&local_arr,0,local_array_size-1);
@@ -177,15 +190,14 @@ int main(int argc, char** argv) {
         start_comm = MPI_Wtime();
 
         // Using Isend to prevent deadlock
-        if(split_rank > pair_process) //uppur half
+        if(split_rank > pair_process) //upper half
         {
-            MPI_Isend(&local_arr[0],pivot,MPI_INT,pair_process,1,new_comm,&request);
+            MPI_Send(&local_arr[0],pivot,MPI_INT,pair_process,1,new_comm);
             MPI_Recv(&recv_buf[0],array_size,MPI_INT,pair_process,1,new_comm,&status);
-
         } else  // lower half
         {
-            MPI_Isend(&local_arr[0]+pivot,local_array_size - pivot , MPI_INT, pair_process,1, new_comm,&request);
             MPI_Recv(&recv_buf[0],array_size,MPI_INT,pair_process,1,new_comm,&status);
+            MPI_Send(&local_arr[0]+pivot,local_array_size - pivot , MPI_INT, pair_process,1, new_comm);
         }
 
         end_comm = MPI_Wtime();
@@ -266,8 +278,10 @@ int main(int argc, char** argv) {
         //end time
         end = MPI_Wtime();
 
-        std::cout << "Time taken:" << end-start << "s" << std::endl;
+        std::cout << "Work time:" << end - start - total_communication_time << "s" << std::endl;
         std::cout << "Communication time:" << total_communication_time << "s" << std::endl;
+
+        std::cout << "Time taken:" << end-start << "s" << std::endl;
 
         //Save the result in an output file
         printArray(&local_arr,array_size);
