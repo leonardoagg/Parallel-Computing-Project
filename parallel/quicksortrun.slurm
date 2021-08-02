@@ -13,4 +13,4 @@
 
 spack load intel-parallel-studio@professional.2019.4 
 
-mpirun -np 8 ./quicksort.o ../input_generator/inputSequence.txt
+mpirun -np 8 ./quicksort_O1.o ../input_generator/inputSequence.txt
