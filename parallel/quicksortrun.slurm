@@ -7,6 +7,7 @@
 #SBATCH --mail-type ALL
 #SBATCH --partition allgroups
 #SBATCH --ntasks 8
+#SBATCH -c 1
 #SBATCH --mem 4G
 #SBATCH --time 2:00
 
